@@ -1,1 +1,3 @@
 /twitter_nlp/
+/.idea/
+*/*.pyc
