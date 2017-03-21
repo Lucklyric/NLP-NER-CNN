@@ -4,13 +4,13 @@ import numpy as np
 from data_util import DataManager
 
 IS_TRAINING = False
-INIT_LEARNING_RATE = 0.003
+INIT_LEARNING_RATE = 0.00001
 
 
 class NERCNN(object):
     def __init__(self):
         self.batch_size = 128
-        self.keep_prob_value = 0.5
+        self.keep_prob_value = 1
         self.init_learning_rate = INIT_LEARNING_RATE
         self.is_training = True
         self.net = None
@@ -37,7 +37,7 @@ class NERCNN(object):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 512, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 50, "fc1")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
@@ -58,7 +58,7 @@ class NERCNN(object):
                     # with tf.name_scope("CNN_TP"):
                     #     self.net = tc.layers.conv2d_transpose(self.net, 1, [])
             with tf.name_scope("TotalLoss"):
-                self.loss = tf.div(tf.reduce_sum(tf.get_collection("column loss"), name="addLoss"), self.batch_size*500,
+                self.loss = tf.div(tf.reduce_sum(tf.get_collection("column loss"), name="addLoss"), self.batch_size,
                                    name='average_loss')
 
         with tf.name_scope("train"):
@@ -106,6 +106,6 @@ if __name__ == "__main__":
     init = tf.global_variables_initializer()
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
-    data_manager = DataManager("../data/train", "../data/test", 12)
+    data_manager = DataManager("../data/train", "../data/test", 5)
     run_train(session, ner_model, data_instance=data_manager)
     session.close()
