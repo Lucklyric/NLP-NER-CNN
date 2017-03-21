@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.contrib as tc
 import numpy as np
-import data_util
+from data_util import DataManager
 
 IS_TRAINING = False
 INIT_LEARNING_RATE = 0.003
@@ -21,7 +21,7 @@ class NERCNN(object):
         else:
             name_prefix = "test"
         with tf.variable_scope(name_prefix + "_inputs"):
-            self.input = tf.placeholder(tf.float32, [None, 70, 500, 1], name="input_map")
+            self.input = tf.placeholder(tf.float32, [None, 70, 500], name="input_map")
             self.output = tf.placeholder(tf.float32, [None, 12, 500], name="output_map")
 
         with tf.variable_scope(name_prefix + "config"):
@@ -29,7 +29,8 @@ class NERCNN(object):
             self.learning_rate = tf.Variable(float(self.init_learning_rate), trainable=False, name="lr")
 
         with tf.name_scope("CNN"):
-            self.net = self.add_c_layer(self.input, 32, [3, 27], "c1")
+            self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")
+            self.net = self.add_c_layer(self.net, 32, [3, 27], "c1")
             self.net = self.add_c_layer(self.net, 32, [3, 27], "c2")
 
         with tf.name_scope("Flat"):
@@ -47,7 +48,7 @@ class NERCNN(object):
 
         with tf.name_scope("Loss"):
             with tf.name_scope("SubLoss"):
-                for i in range(3):
+                for i in range(500):
                     tf.add_to_collection("column loss",
                                          tf.nn.softmax_cross_entropy_with_logits(logits=self.net[:, :, i],
                                                                                  labels=self.output[:, :, i]))
@@ -57,7 +58,11 @@ class NERCNN(object):
                     # with tf.name_scope("CNN_TP"):
                     #     self.net = tc.layers.conv2d_transpose(self.net, 1, [])
             with tf.name_scope("TotalLoss"):
-                self.loss = tf.add_n(tf.get_collection("column loss"), name="addLoss")
+                self.loss = tf.div(tf.reduce_sum(tf.get_collection("column loss"), name="addLoss"), self.batch_size*500,
+                                   name='average_loss')
+
+        with tf.name_scope("train"):
+            self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
     def add_c_layer(self, net, size, kernel_size, name):
         with tf.variable_scope(name):
@@ -77,11 +82,30 @@ class NERCNN(object):
         return net
 
 
+def run_train(sess, model, data_instance):
+    epoch = 0
+    step = 0
+    while epoch < 10000:
+        batch_input, batch_output, new_epoch = data_instance.get_batch()
+        if new_epoch:
+            epoch += 1
+            step = 0
+        feed_dict = {
+            model.input: batch_input,
+            model.output: batch_output
+        }
+        _, loss = sess.run([model.train_op, model.loss], feed_dict=feed_dict)
+        step += 1
+        print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
+
+
 if __name__ == "__main__":
-    model = NERCNN()
-    sess = tf.Session()
+    ner_model = NERCNN()
+    session = tf.Session()
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
-    writer = tf.summary.FileWriter("log/", sess.graph)
-    sess.run(init)
-    sess.close()
+    writer = tf.summary.FileWriter("log/", session.graph)
+    session.run(init)
+    data_manager = DataManager("../data/train", "../data/test", 12)
+    run_train(session, ner_model, data_instance=data_manager)
+    session.close()
