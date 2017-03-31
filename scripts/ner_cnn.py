@@ -48,7 +48,7 @@ class NERCNN(object):
 
         with tf.name_scope("Loss"):
             with tf.name_scope("SubLoss"):
-                for i in range(500):
+                for i in range(5):
                     tf.add_to_collection("column loss",
                                          tf.nn.softmax_cross_entropy_with_logits(logits=self.net[:, :, i],
                                                                                  labels=self.output[:, :, i]))
@@ -106,6 +106,6 @@ if __name__ == "__main__":
     init = tf.global_variables_initializer()
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
-    data_manager = DataManager("../data/train", "../data/test", 5)
+    data_manager = DataManager("../data/train", "../data/test", 50)
     run_train(session, ner_model, data_instance=data_manager)
     session.close()
