@@ -1,3 +1,5 @@
 /twitter_nlp/
 /.idea/
 */*.pyc
+
+scripts/log/
