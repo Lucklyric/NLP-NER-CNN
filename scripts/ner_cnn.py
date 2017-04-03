@@ -26,7 +26,10 @@ class NERCNN(object):
 
         with tf.variable_scope(name_prefix + "config"):
             self.keep_prob = tf.Variable(float(self.keep_prob_value), trainable=False, name="keep_prob")
+            self.global_step = tf.Variable(0, name="global_step", trainable=False, dtype=tf.int32)
             self.learning_rate = tf.Variable(float(self.init_learning_rate), trainable=False, name="lr")
+            if self.is_training is True:
+                tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")
@@ -37,7 +40,7 @@ class NERCNN(object):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 50 *2, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 50 * 2, "fc1")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
@@ -60,9 +63,11 @@ class NERCNN(object):
             with tf.name_scope("TotalLoss"):
                 self.loss = tf.div(tf.reduce_sum(tf.get_collection("column loss"), name="addLoss"), self.batch_size,
                                    name='average_loss')
+                tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
             self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+            self.increase_step = self.global_step.assign_add(1)
 
     def add_c_layer(self, net, size, kernel_size, name):
         with tf.variable_scope(name):
@@ -94,8 +99,14 @@ def run_train(sess, model, data_instance):
             model.input: batch_input,
             model.output: batch_output
         }
-        _, loss = sess.run([model.train_op, model.loss], feed_dict=feed_dict)
+        _, loss, _, g_steps, merged_summary = sess.run(
+            [model.train_op, model.loss, model.increase_step, model.global_step, merged],
+            feed_dict=feed_dict)
         step += 1
+        writer.add_summary(merged_summary, global_step=g_steps)
+        if g_steps % 100 == 0:
+            saver.save(sess, "model/model.ckpt")
+            print ("Save model")
         print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
 
 
@@ -104,8 +115,17 @@ if __name__ == "__main__":
     session = tf.Session()
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
+    merged = tf.summary.merge_all()
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
     data_manager = DataManager("../data/train", "../data/test", 50)
+    ckpt = tf.train.get_checkpoint_state('model')
+
+    if ckpt and ckpt.model_checkpoint_path:
+        saver.restore(session, ckpt.model_checkpoint_path)
+        print('Checkpoint found')
+    else:
+        print('No checkpoint found')
+
     run_train(session, ner_model, data_instance=data_manager)
     session.close()
