@@ -37,7 +37,7 @@ class NERCNN(object):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 50, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 50 *2, "fc1")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
@@ -48,7 +48,7 @@ class NERCNN(object):
 
         with tf.name_scope("Loss"):
             with tf.name_scope("SubLoss"):
-                for i in range(5):
+                for i in range(500):
                     tf.add_to_collection("column loss",
                                          tf.nn.softmax_cross_entropy_with_logits(logits=self.net[:, :, i],
                                                                                  labels=self.output[:, :, i]))
