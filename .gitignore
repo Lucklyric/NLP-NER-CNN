@@ -3,3 +3,5 @@
 */*.pyc
 
 scripts/log/
+
+scripts/model/
