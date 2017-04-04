@@ -7,12 +7,32 @@ IS_TRAINING = False
 INIT_LEARNING_RATE = 0.00001
 
 
+class Config(object):
+    batch_size = 64
+    fc_keep_prob_value = 0.5
+    cnn_keep_prob_value = 0.5
+    is_training = True
+
+
+class TrainConfig(Config):
+    batch_size = 4
+    cnn_keep_prob_value = 1
+
+
+class TestConfig(Config):
+    batch_size = 1
+    cnn_keep_prob_value = 1
+    fc_keep_prob_value = 1
+    is_training = False
+
+
 class NERCNN(object):
-    def __init__(self):
-        self.batch_size = 128
-        self.keep_prob_value = 1
+    def __init__(self, config):
+        self.batch_size = config.batch_size
+        self.fc_keep_prob_value = config.fc_keep_prob_value
+        self.cnn_keep_prob_value = config.cnn_keep_prob_value
         self.init_learning_rate = INIT_LEARNING_RATE
-        self.is_training = True
+        self.is_training = config.is_training
         self.net = None
 
         # build the net
@@ -24,8 +44,9 @@ class NERCNN(object):
             self.input = tf.placeholder(tf.float32, [None, 70, 500], name="input_map")
             self.output = tf.placeholder(tf.float32, [None, 12, 500], name="output_map")
 
-        with tf.variable_scope(name_prefix + "config"):
-            self.keep_prob = tf.Variable(float(self.keep_prob_value), trainable=False, name="keep_prob")
+        with tf.variable_scope("config"):
+            self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
+            self.cnn_keep_prob = tf.placeholder(tf.float32, name="cnn_keep_prob")
             self.global_step = tf.Variable(0, name="global_step", trainable=False, dtype=tf.int32)
             self.learning_rate = tf.Variable(float(self.init_learning_rate), trainable=False, name="lr")
             if self.is_training is True:
@@ -47,7 +68,10 @@ class NERCNN(object):
             self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "projection")
 
         with tf.name_scope("Output"):
-            self.net = tf.reshape(self.net, [-1, 12, 500])
+            self.output = self.net = tf.reshape(self.net, [-1, 12, 500])
+
+        if self.is_training is False:
+            return
 
         with tf.name_scope("Loss"):
             with tf.name_scope("SubLoss"):
@@ -73,12 +97,12 @@ class NERCNN(object):
         with tf.variable_scope(name):
             net = tc.layers.conv2d(net, size, kernel_size=kernel_size)
             net = tc.layers.max_pool2d(net, kernel_size=[1, 9])
-            net = tf.nn.dropout(net, self.keep_prob)
+            net = tf.nn.dropout(net, self.cnn_keep_prob)
         return net
 
     def add_fc_layer(self, net, size, name):
         with tf.variable_scope(name):
-            net = tf.nn.dropout(tc.layers.fully_connected(net, size), keep_prob=self.keep_prob)
+            net = tf.nn.dropout(tc.layers.fully_connected(net, size), keep_prob=self.fc_keep_prob)
         return net
 
     def add_dc_layer(self, net, size, kernel_size, stride, name):
@@ -97,7 +121,9 @@ def run_train(sess, model, data_instance):
             step = 0
         feed_dict = {
             model.input: batch_input,
-            model.output: batch_output
+            model.output: batch_output,
+            model.cnn_keep_prob: model.cnn_keep_prob_value,
+            model.fc_keep_prob: model.fc_keep_prob_value
         }
         _, loss, _, g_steps, merged_summary = sess.run(
             [model.train_op, model.loss, model.increase_step, model.global_step, merged],
@@ -110,22 +136,45 @@ def run_train(sess, model, data_instance):
         print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
 
 
+def run_evaluate(sess, model, data_instance):
+    sample_input, sample_output = data_instance.get_one_sample(1)
+    feed_dict = {
+        model.input: np.reshape(sample_input, [1, 70, 500]),
+        model.cnn_keep_prob: model.cnn_keep_prob_value,
+        model.fc_keep_prob: model.fc_keep_prob_value
+    }
+    output = sess.run([model.output], feed_dict=feed_dict)
+    class_output = []
+    class_correct_output = []
+    for i in range(500):
+        class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
+        class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
+    print (class_output)
+    print (class_correct_output)
+
+
 if __name__ == "__main__":
-    ner_model = NERCNN()
+    if IS_TRAINING is True:
+        ner_model = NERCNN(TrainConfig)
+    else:
+        ner_model = NERCNN(TestConfig)
     session = tf.Session()
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
     merged = tf.summary.merge_all()
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
-    data_manager = DataManager("../data/train", "../data/test", 50)
-    ckpt = tf.train.get_checkpoint_state('model')
+    ckpt = tf.train.get_checkpoint_state('model/')
+    data_manager = DataManager("../data/train", "../data/test", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:
         saver.restore(session, ckpt.model_checkpoint_path)
         print('Checkpoint found')
     else:
         print('No checkpoint found')
+    if IS_TRAINING is True:
+        run_train(session, ner_model, data_instance=data_manager)
+    else:
+        run_evaluate(session, ner_model, data_instance=data_manager)
 
-    run_train(session, ner_model, data_instance=data_manager)
     session.close()
