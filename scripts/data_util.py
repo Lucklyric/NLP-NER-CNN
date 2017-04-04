@@ -72,6 +72,12 @@ class DataManager(object):
         self._batch_size = batch_size
         self._batch_index = 0
 
+    def get_one_sample(self, index=0, source="test"):
+        if source != "test":
+            return self._train_data[index, 0:70, :], self._train_data[index, 70:, :]
+        else:
+            return self._evl_data[index, 0:70, :], self._evl_data[index, 70:, :]
+
     def get_batch(self):
         epoch_end = False
         self._batch_index += self._batch_size
