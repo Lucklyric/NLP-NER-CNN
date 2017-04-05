@@ -166,7 +166,7 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
     ckpt = tf.train.get_checkpoint_state('model')
-    data_manager = DataManager("../data/train", "../data/test", ner_model.batch_size)
+    data_manager = DataManager("../data/train_np.npy", "../data/test_np.npy", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:
         saver.restore(session, ckpt.model_checkpoint_path)
