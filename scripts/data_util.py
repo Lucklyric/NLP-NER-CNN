@@ -70,12 +70,14 @@ def save_to_disk(train_data, evl_data):
 
 class DataManager(object):
     def __init__(self, train_data, evl_data, batch_size):
+        print ("Start loading data ...")
         self._train_data = train_data
         self._evl_data = evl_data
         self._train_data = np.load(self._train_data)
         self._evl_data = np.load(self._evl_data)
         self._batch_size = batch_size
         self._batch_index = 0
+        print ("Data loaded !")
 
     def get_one_sample(self, index=0, source="test"):
         if source != "test":
