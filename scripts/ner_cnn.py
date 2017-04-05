@@ -61,7 +61,7 @@ class NERCNN(object):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 500 * 8, "fc1")
+            # self.net = self.add_fc_layer(self.net, 1 * 12 * 500 * 8, "fc1")
             self.net = self.add_fc_layer(self.net, 1 * 12 * 500 * 2, "fc2")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
