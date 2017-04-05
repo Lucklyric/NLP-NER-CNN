@@ -54,8 +54,8 @@ class NERCNN(object):
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
-            self.net = self.add_c_layer(self.net, 32, [3, 3], "c1")  # 35*250*32 = 280000
-            self.net = self.add_c_layer(self.net, 64, [3, 3], "c2")  # 18*125*64 = 144000
+            self.net = self.add_c_layer(self.net, 8, [3, 3], "c1")  # 35*250*32 = 280000
+            self.net = self.add_c_layer(self.net, 16, [3, 3], "c2")  # 18*125*64 = 144000
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
