@@ -7,3 +7,7 @@ scripts/log/
 scripts/model/
 
 scripts/model_d/
+
+data/test_np\.npy
+
+data/train_np\.npy
