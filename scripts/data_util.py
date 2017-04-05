@@ -63,12 +63,17 @@ def parse_raw_data(path):
     return np.array(data)
 
 
+def save_to_disk(train_data, evl_data):
+    np.save(train_data+"_np", parse_raw_data(train_data))
+    np.save(evl_data+"_np", parse_raw_data(evl_data))
+
+
 class DataManager(object):
     def __init__(self, train_data, evl_data, batch_size):
         self._train_data = train_data
         self._evl_data = evl_data
-        self._train_data = parse_raw_data(self._train_data)
-        self._evl_data = parse_raw_data(self._evl_data)
+        self._train_data = np.load(self._train_data)
+        self._evl_data = np.load(self._evl_data)
         self._batch_size = batch_size
         self._batch_index = 0
 
