@@ -3,8 +3,8 @@ import tensorflow.contrib as tc
 import numpy as np
 from data_util import DataManager
 
-IS_TRAINING = False
-INIT_LEARNING_RATE = 0.00001
+IS_TRAINING = True
+INIT_LEARNING_RATE = 0.0001
 
 
 class Config(object):
@@ -15,7 +15,7 @@ class Config(object):
 
 
 class TrainConfig(Config):
-    batch_size = 1
+    batch_size = 64
     cnn_keep_prob_value = 1
 
 
@@ -53,17 +53,16 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
-            self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")
-            # 70*500 = 35000
-            self.net = self.add_c_layer(self.net, 32, [3, 27], "c1")
-            # 70*500 = 35000
-            self.net = self.add_c_layer(self.net, 32, [3, 27], "c2")
+            self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
+            self.net = self.add_c_layer(self.net, 32, [3, 3], "c1")  # 35*250*32 = 280000
+            self.net = self.add_c_layer(self.net, 64, [3, 3], "c2")  # 18*125*64 = 144000
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 50 * 2, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 500 * 8, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 500 * 2, "fc2")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
@@ -97,8 +96,8 @@ class NERCNN(object):
 
     def add_c_layer(self, net, size, kernel_size, name):
         with tf.variable_scope(name):
-            net = tc.layers.conv2d(net, size, kernel_size=kernel_size, stride=2)
-            # net = tc.layers.max_pool2d(net, kernel_size=[1, 9])
+            net = tc.layers.conv2d(net, size, kernel_size=kernel_size)
+            net = tc.layers.max_pool2d(net, kernel_size=[1, 2])
             net = tf.nn.dropout(net, self.cnn_keep_prob)
         return net
 
@@ -139,7 +138,7 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(1)
+    sample_input, sample_output = data_instance.get_one_sample(700, source="test")
     feed_dict = {
         model.input: np.reshape(sample_input, [1, 70, 500]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
@@ -166,7 +165,7 @@ if __name__ == "__main__":
     merged = tf.summary.merge_all()
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
-    ckpt = tf.train.get_checkpoint_state('model/')
+    ckpt = tf.train.get_checkpoint_state('model')
     data_manager = DataManager("../data/train", "../data/test", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:
