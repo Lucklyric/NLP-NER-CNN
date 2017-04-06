@@ -15,7 +15,7 @@ class Config(object):
 
 
 class TrainConfig(Config):
-    batch_size = 1
+    batch_size = 64
     cnn_keep_prob_value = 1
 
 
@@ -54,8 +54,8 @@ class NERCNN(object):
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
-            self.net = self.add_c_layer(self.net, 8, [3, 3], "c1")  # 35*250*32 = 280000
-            self.net = self.add_c_layer(self.net, 16, [3, 3], "c2")  # 18*125*64 = 144000
+            self.net = self.add_c_layer(self.net, 128, [70, 3], "c1")  # 35*250*32 = 280000
+            self.net = self.add_c_layer(self.net, 256, [1, 3], "c2")  # 18*125*64 = 144000
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
@@ -96,8 +96,8 @@ class NERCNN(object):
 
     def add_c_layer(self, net, size, kernel_size, name):
         with tf.variable_scope(name):
-            net = tc.layers.conv2d(net, size, kernel_size=kernel_size)
-            net = tc.layers.max_pool2d(net, kernel_size=[1, 2])
+            net = tc.layers.conv2d(net, size, kernel_size=kernel_size, padding='VALID')
+            net = tc.layers.max_pool2d(net, kernel_size=[1, 3], stride=[1, 2])
             net = tf.nn.dropout(net, self.cnn_keep_prob)
         return net
 
