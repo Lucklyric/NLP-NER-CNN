@@ -4,12 +4,12 @@ import numpy as np
 from data_util import DataManager
 
 IS_TRAINING = True
-INIT_LEARNING_RATE = 0.0001
+INIT_LEARNING_RATE = 0.00001
 
 
 class Config(object):
     batch_size = 64
-    fc_keep_prob_value = 0.5
+    fc_keep_prob_value = 1
     cnn_keep_prob_value = 0.5
     is_training = True
 
@@ -54,8 +54,14 @@ class NERCNN(object):
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
-            self.net = self.add_c_layer(self.net, 128, [70, 3], "c1")  # 35*250*32 = 280000
-            self.net = self.add_c_layer(self.net, 256, [1, 3], "c2")  # 18*125*64 = 144000
+            self.net = tc.layers.conv2d(self.net, 32, [5, 5], stride=1, padding="VALID")  # 66*496*32
+            self.net = tc.layers.max_pool2d(self.net, [2, 6], stride=2)  # 33*246*32
+            self.net = tc.layers.conv2d(self.net, 64, [33, 3], stride=1, padding="VALID")  # 1*244*32
+            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1*122*32
+            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*120*32
+            self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*62*32
+            # self.net = self.add_c_layer(self.net, 32, [70, 9], "c1")  # 35*250*32 = 280000
+            # self.net = self.add_c_layer(self.net, 32, [1, 3], "c2")  # 18*125*64 = 144000
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
@@ -66,10 +72,12 @@ class NERCNN(object):
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "projection")
+            # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "projection")
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 500, activation_fn=None),
+                                     keep_prob=self.fc_keep_prob)
 
         with tf.name_scope("Output"):
-            self.output = self.net = tf.reshape(self.net, [-1, 12, 500])
+            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 500])
 
         if self.is_training is False:
             return
@@ -91,13 +99,13 @@ class NERCNN(object):
                 tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
-            self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+            self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
             self.increase_step = self.global_step.assign_add(1)
 
     def add_c_layer(self, net, size, kernel_size, name):
         with tf.variable_scope(name):
-            net = tc.layers.conv2d(net, size, kernel_size=kernel_size, padding='VALID')
-            net = tc.layers.max_pool2d(net, kernel_size=[1, 3], stride=[1, 2])
+            net = tc.layers.conv2d(net, size, kernel_size=kernel_size, padding='VALID', stride=[1, 2])
+            # net = tc.layers.max_pool2d(net, kernel_size=[1, 3], stride=[1, 2])
             net = tf.nn.dropout(net, self.cnn_keep_prob)
         return net
 
@@ -138,13 +146,13 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(700, source="test")
+    sample_input, sample_output = data_instance.get_one_sample(0, source="test")
     feed_dict = {
         model.input: np.reshape(sample_input, [1, 70, 500]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
-    output = sess.run([model.output], feed_dict=feed_dict)
+    output = sess.run([model.net_output], feed_dict=feed_dict)
     class_output = []
     class_correct_output = []
     for i in range(500):
