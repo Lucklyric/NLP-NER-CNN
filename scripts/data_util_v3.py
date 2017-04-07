@@ -27,25 +27,25 @@ def parse_raw_data(path):
             word = sentence[word_idx]
             target_symbol = 0  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 1
+                target_symbol = 1/10.0
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 2
+                target_symbol = 2/10.0
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 3
+                target_symbol = 3/10.0
             elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 4
+                target_symbol = 4/10.0
             elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 5
+                target_symbol = 5/10.0
             elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 6
+                target_symbol = 6/10.0
             elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 7
+                target_symbol = 7/10.0
             elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 8
+                target_symbol = 8/10.0
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 9
+                target_symbol = 9/10.0
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 10
+                target_symbol = 10/10.0
             for char in word.upper():  # upper the
                 char_dec = ord(char)
                 row_idx = 68  # represent other unkonw symbols
@@ -83,7 +83,7 @@ class DataManager(object):
         if source != "test":
             return self._train_data[index, 0:70, :], self._train_data[index, 70:, :]
         else:
-            return self._evl_data[index, 0:70, :], self._evl_data[index, 70:, :]
+            return self._evl_data[index, 0:70, :], self._evl_data[index, 70, :]
 
     def get_batch(self):
         epoch_end = False
@@ -94,5 +94,5 @@ class DataManager(object):
             self._batch_index = self._batch_size
         batch_data = self._train_data[self._batch_index - self._batch_size:self._batch_index]
         batch_input = batch_data[:, 0:70, :]
-        batch_output = batch_data[:, 70:, :]
+        batch_output = batch_data[:, 70, :]
         return batch_input, batch_output, epoch_end

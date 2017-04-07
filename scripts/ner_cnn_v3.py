@@ -1,10 +1,10 @@
 import tensorflow as tf
 import tensorflow.contrib as tc
 import numpy as np
-from data_util import DataManager
+from data_util_v3 import DataManager
 
 IS_TRAINING = True
-INIT_LEARNING_RATE = 0.1
+INIT_LEARNING_RATE = 0.00001
 
 
 class Config(object):
@@ -54,14 +54,14 @@ class NERCNN(object):
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
+            # self.net = tc.layers.conv2d(self.net, 32, [70, 5], stride=1, padding="VALID")  # 66*496*32
+            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 33*246*32
             self.net = tc.layers.conv2d(self.net, 32, [5, 5], stride=1, padding="VALID")  # 66*496*32
             self.net = tc.layers.max_pool2d(self.net, [2, 6], stride=2)  # 33*246*32
-            self.net = tc.layers.conv2d(self.net, 64, [33, 3], stride=1, padding="VALID")  # 1*244*32
+            self.net = tc.layers.conv2d(self.net, 64, [3, 3], stride=1, padding="VALID")  # 1*244*32
             self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1*122*32
-            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*120*32
-            self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*62*32
-            # self.net = self.add_c_layer(self.net, 32, [70, 9], "c1")  # 35*250*32 = 280000
-            # self.net = self.add_c_layer(self.net, 32, [1, 3], "c2")  # 18*125*64 = 144000
+            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*244*32
+            self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*122*32
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
@@ -70,17 +70,18 @@ class NERCNN(object):
             self.net = self.add_fc_layer(self.net, 500 * 2, "fc1")
 
         with tf.name_scope("Output"):
-            self.output = self.net = self.add_fc_layer(self.net, 500, "out")
-
+            # self.net_output = self.net = self.add_fc_layer(self.net, 500, "out")
+            self.net_output = self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 500, activation_fn=None),
+                                                       keep_prob=self.fc_keep_prob)
         if self.is_training is False:
             return
 
         with tf.name_scope("Loss"):
-            self.loss = tf.div(tf.nn.l2_loss(self.net - self.output), self.batch_size)
+            self.loss = tf.div(tf.reduce_sum(tf.abs(self.output - self.net_output)), self.batch_size)
             tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
-            self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
+            self.train_op = tf.train.AdamOptimizer(self.learning_rate, epsilon=0.1).minimize(self.loss)
             self.increase_step = self.global_step.assign_add(1)
 
     def add_c_layer(self, net, size, kernel_size, name):
@@ -133,14 +134,14 @@ def run_evaluate(sess, model, data_instance):
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
-    output = sess.run([model.output], feed_dict=feed_dict)
-    class_output = []
-    class_correct_output = []
-    for i in range(500):
-        class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
-        class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
-    print (class_output)
-    print (class_correct_output)
+    output = sess.run([model.net_output], feed_dict=feed_dict)
+    # class_output = []
+    # class_correct_output = []
+    # for i in range(500):
+    #     class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
+    #     class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
+    print (output)
+    print (sample_output)
 
 
 if __name__ == "__main__":
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter("log/", session.graph)
     session.run(init)
     ckpt = tf.train.get_checkpoint_state('model')
-    data_manager = DataManager("../data/train_np.npy", "../data/test_np.npy", ner_model.batch_size)
+    data_manager = DataManager("../data/train_np_v3.npy", "../data/test_np_v3.npy", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:
         saver.restore(session, ckpt.model_checkpoint_path)
