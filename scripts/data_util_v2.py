@@ -21,31 +21,33 @@ def parse_raw_data(path):
     data = []
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
-        sentence_data = np.zeros((70 + 12, 500), dtype=np.float32)
+        sentence_data = []
+        word_data = np.zeros((70, 30), dtype=np.float32)
         col_idx = 0
+        target_data = []
         for word_idx in range(len(sentence)):
             word = sentence[word_idx]
-            target_symbol_index = 70  # 0 PASS
+            target_symbol_index = 0
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 71
+                target_symbol_index = 1
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 72
+                target_symbol_index = 2
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 73
+                target_symbol_index = 3
             elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 74
+                target_symbol_index = 4
             elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 75
+                target_symbol_index = 5
             elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 76
+                target_symbol_index = 6
             elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 77
+                target_symbol_index = 7
             elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 78
+                target_symbol_index = 8
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 79
+                target_symbol_index = 9
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 80
+                target_symbol_index = 10
             for char in word.upper():  # upper the
                 char_dec = ord(char)
                 row_idx = 68  # represent other unkonw symbols
@@ -56,9 +58,6 @@ def parse_raw_data(path):
                 sentence_data[row_idx, col_idx] = 1
                 sentence_data[target_symbol_index, col_idx] = 1
                 col_idx += 1
-            sentence_data[69, col_idx] = 1
-            sentence_data[81, col_idx] = 1
-            col_idx += 1
         data.append(sentence_data)
     return np.array(data)
 
