@@ -1,9 +1,10 @@
 import tensorflow as tf
 import tensorflow.contrib as tc
 import numpy as np
-from data_util_v3 import DataManager
+from data_util_v2 import DataManager
+import data_util_v2
 
-IS_TRAINING = False
+IS_TRAINING = True
 INIT_LEARNING_RATE = 0.00001
 
 
@@ -41,8 +42,8 @@ class NERCNN(object):
         else:
             name_prefix = "test"
         with tf.variable_scope(name_prefix + "_inputs"):
-            self.input = tf.placeholder(tf.float32, [None, 70, 500], name="input_map")
-            self.output = tf.placeholder(tf.float32, [None, 500], name="output_map")
+            self.input = tf.placeholder(tf.float32, [None, 70, 400], name="input_map")
+            self.output = tf.placeholder(tf.float32, [None, 400], name="output_map")
 
         with tf.variable_scope("config"):
             self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
@@ -53,27 +54,27 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
-            self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
+            self.net = tf.reshape(self.input, [-1, 70, 400, 1], "input_reshape")  # 70*500 = 35000
             # self.net = tc.layers.conv2d(self.net, 32, [70, 5], stride=1, padding="VALID")  # 66*496*32
             # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 33*246*32
-            self.net = tc.layers.conv2d(self.net, 32, [70, 9], stride=1, padding="VALID")  # 66*496*32
+            self.net = tc.layers.conv2d(self.net, 128, [70, 9], stride=1, padding="VALID")  # 66*496*32
             self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 33*246*32
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 500 * 2, "fc1")
+            self.net = self.add_fc_layer(self.net, 400 * 2, "fc1")
 
         with tf.name_scope("Output"):
             # self.net_output = self.net = self.add_fc_layer(self.net, 500, "out")
-            self.net_output = self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 500, activation_fn=None),
+            self.net_output = self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 400, activation_fn=None),
                                                        keep_prob=self.fc_keep_prob)
         if self.is_training is False:
             return
 
         with tf.name_scope("Loss"):
-            self.loss = tf.div(tf.reduce_sum(tf.abs(self.output - self.net_output)), self.batch_size) * 100
+            self.loss = tf.div(tf.nn.l2_loss(self.output - self.net_output), self.batch_size) * 100
             tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
@@ -118,7 +119,7 @@ def run_train(sess, model, data_instance):
         step += 1
         writer.add_summary(merged_summary, global_step=g_steps)
         if g_steps % 100 == 0:
-            saver.save(sess, "model/model.ckpt")
+            saver.save(sess, "model/v2/model.ckpt")
             print ("Save model")
         print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
 
@@ -126,7 +127,7 @@ def run_train(sess, model, data_instance):
 def run_evaluate(sess, model, data_instance):
     sample_input, sample_output = data_instance.get_one_sample(0, source="test")
     feed_dict = {
-        model.input: np.reshape(sample_input, [1, 70, 500]),
+        model.input: np.reshape(sample_input, [1, 70, 400]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
@@ -149,10 +150,16 @@ if __name__ == "__main__":
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
     merged = tf.summary.merge_all()
-    writer = tf.summary.FileWriter("log/", session.graph)
+    writer = tf.summary.FileWriter("log/v2", session.graph)
     session.run(init)
-    ckpt = tf.train.get_checkpoint_state('model')
-    data_manager = DataManager("../data/train_np_v3.npy", "../data/test_np_v3.npy", ner_model.batch_size)
+    ckpt = tf.train.get_checkpoint_state('model/v2')
+
+    # Check Data file
+    if tf.gfile.Exists("../data/train_np_v2.npy") is False:
+        print ("not find npy data file, parse data ..")
+        data_util_v2.save_to_disk("../data/train", "../data/test")
+        print ("Done!")
+    data_manager = DataManager("../data/train_np_v2.npy", "../data/test_np_v2.npy", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:
         saver.restore(session, ckpt.model_checkpoint_path)

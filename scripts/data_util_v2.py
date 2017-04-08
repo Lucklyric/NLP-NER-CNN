@@ -21,33 +21,31 @@ def parse_raw_data(path):
     data = []
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
-        sentence_data = []
-        word_data = np.zeros((70, 30), dtype=np.float32)
+        sentence_data = np.zeros((70 + 1, 400), dtype=np.float32)
         col_idx = 0
-        target_data = []
         for word_idx in range(len(sentence)):
             word = sentence[word_idx]
-            target_symbol_index = 0
+            target_symbol = 0  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 1
+                target_symbol = 1 / 10.0
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 2
+                target_symbol = 2 / 10.0
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 3
+                target_symbol = 3 / 10.0
             elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 4
+                target_symbol = 4 / 10.0
             elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 5
+                target_symbol = 5 / 10.0
             elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 6
+                target_symbol = 6 / 10.0
             elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 7
+                target_symbol = 7 / 10.0
             elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 8
+                target_symbol = 8 / 10.0
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 9
+                target_symbol = 9 / 10.0
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 10
+                target_symbol = 10 / 10.0
             for char in word.upper():  # upper the
                 char_dec = ord(char)
                 row_idx = 68  # represent other unkonw symbols
@@ -55,16 +53,19 @@ def parse_raw_data(path):
                     row_idx = char_dec - 33
                 elif 126 >= char_dec >= 123:
                     row_idx = char_dec - 33 - 26
-                sentence_data[row_idx, col_idx] = 1
-                sentence_data[target_symbol_index, col_idx] = 1
+                sentence_data[0:row_idx, col_idx] = 1
+                sentence_data[70, col_idx] = target_symbol
                 col_idx += 1
+            sentence_data[69, col_idx] = 1
+            sentence_data[70, col_idx] = -1
+            col_idx += 1
         data.append(sentence_data)
     return np.array(data)
 
 
 def save_to_disk(train_data, evl_data):
-    np.save(train_data+"_np", parse_raw_data(train_data))
-    np.save(evl_data+"_np", parse_raw_data(evl_data))
+    np.save(train_data + "_np_v2", parse_raw_data(train_data))
+    np.save(evl_data + "_np_v2", parse_raw_data(evl_data))
 
 
 class DataManager(object):
@@ -82,7 +83,7 @@ class DataManager(object):
         if source != "test":
             return self._train_data[index, 0:70, :], self._train_data[index, 70:, :]
         else:
-            return self._evl_data[index, 0:70, :], self._evl_data[index, 70:, :]
+            return self._evl_data[index, 0:70, :], self._evl_data[index, 70, :]
 
     def get_batch(self):
         epoch_end = False
@@ -93,5 +94,5 @@ class DataManager(object):
             self._batch_index = self._batch_size
         batch_data = self._train_data[self._batch_index - self._batch_size:self._batch_index]
         batch_input = batch_data[:, 0:70, :]
-        batch_output = batch_data[:, 70:, :]
+        batch_output = batch_data[:, 70, :]
         return batch_input, batch_output, epoch_end
