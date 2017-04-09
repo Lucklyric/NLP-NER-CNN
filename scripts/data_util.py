@@ -21,13 +21,13 @@ def parse_raw_data(path):
     data = []
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
-        sentence_data = np.zeros((70 + 12, 400), dtype=np.float32)
+        sentence_data = np.zeros((71 + 13, 400), dtype=np.float32)
         col_idx = 0
         for word_idx in range(len(sentence)):
             word = sentence[word_idx]
-            target_symbol_index = 70  # 0 PASS
+            target_symbol_index = 71  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 71
+                target_symbol_index = 81
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 72
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
@@ -56,9 +56,11 @@ def parse_raw_data(path):
                 sentence_data[0:row_idx, col_idx] = 1
                 sentence_data[target_symbol_index, col_idx] = 1
                 col_idx += 1
-            sentence_data[0:69, col_idx] = 1
-            sentence_data[81, col_idx] = 1
+            sentence_data[69, col_idx] = 1
+            sentence_data[82, col_idx] = 1
             col_idx += 1
+        sentence_data[70, col_idx:] = 1  # PAD
+        sentence_data[83, col_idx:] = 1  # PAD
         data.append(sentence_data)
     return np.array(data)
 
@@ -81,9 +83,9 @@ class DataManager(object):
 
     def get_one_sample(self, index=0, source="test"):
         if source != "test":
-            return self._train_data[index, 0:70, :], self._train_data[index, 70:, :]
+            return self._train_data[index, 0:71, :], self._train_data[index, 71:, :]
         else:
-            return self._evl_data[index, 0:70, :], self._evl_data[index, 70:, :]
+            return self._evl_data[index, 0:71, :], self._evl_data[index, 71:, :]
 
     def get_batch(self):
         epoch_end = False
@@ -93,6 +95,6 @@ class DataManager(object):
             np.random.shuffle(self._train_data)  # shuffle the data
             self._batch_index = self._batch_size
         batch_data = self._train_data[self._batch_index - self._batch_size:self._batch_index]
-        batch_input = batch_data[:, 0:70, :]
-        batch_output = batch_data[:, 70:, :]
+        batch_input = batch_data[:, 0:71, :]
+        batch_output = batch_data[:, 71:, :]
         return batch_input, batch_output, epoch_end

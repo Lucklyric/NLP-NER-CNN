@@ -3,13 +3,14 @@ import tensorflow.contrib as tc
 import numpy as np
 from data_util import DataManager
 import data_util
-IS_TRAINING = False
-INIT_LEARNING_RATE = 0.000001
+
+IS_TRAINING = True
+INIT_LEARNING_RATE = 0.0001
 
 
 class Config(object):
     batch_size = 64
-    fc_keep_prob_value = 1
+    fc_keep_prob_value = 0.5
     cnn_keep_prob_value = 0.5
     is_training = True
 
@@ -41,8 +42,8 @@ class NERCNN(object):
         else:
             name_prefix = "test"
         with tf.variable_scope(name_prefix + "_inputs"):
-            self.input = tf.placeholder(tf.float32, [None, 70, 400], name="input_map")
-            self.output = tf.placeholder(tf.float32, [None, 12, 400], name="output_map")
+            self.input = tf.placeholder(tf.float32, [None, 71, 400], name="input_map")
+            self.output = tf.placeholder(tf.float32, [None, 13, 400], name="output_map")
 
         with tf.variable_scope("config"):
             self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
@@ -53,31 +54,27 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
-            self.net = tf.reshape(self.input, [-1, 70, 400, 1], "input_reshape")  # 70*500 = 35000
-            self.net = tc.layers.conv2d(self.net, 32, [70, 6], stride=1, padding="VALID")  # 66*496*32
-            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=1)  # 33*246*32V
-            # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1, padding="VALID")  # 1*244*32
-            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1*122*32
-            # self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*120*32
-            # self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*62*32
-            # self.net = self.add_c_layer(self.net, 32, [70, 9], "c1")  # 35*250*32 = 280000
-            # self.net = self.add_c_layer(self.net, 32, [1, 3], "c2")  # 18*125*64 = 144000
+            self.net = tf.reshape(self.input, [-1, 71, 400, 1], "input_reshape")  # 70*400 = 35000
+            self.net = tc.layers.conv2d(self.net, 128, [71, 5], stride=1, padding="VALID")  # 1 * 396 * 32
+            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 188 * 128
+            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1 * 186 * 128
+            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 92 * 128
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 400, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 13 * 400, "fc1")
             # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "fc2")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
             # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "projection")
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 400, activation_fn=None),
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 400, activation_fn=None),
                                      keep_prob=self.fc_keep_prob)
 
         with tf.name_scope("Output"):
-            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 400])
+            self.net_output = self.net = tf.reshape(self.net, [-1, 13, 400])
 
         if self.is_training is False:
             return
@@ -146,9 +143,9 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(1, source="train")
+    sample_input, sample_output = data_instance.get_one_sample(2, source="train")
     feed_dict = {
-        model.input: np.reshape(sample_input, [1, 70, 400]),
+        model.input: np.reshape(sample_input, [1, 71, 400]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
