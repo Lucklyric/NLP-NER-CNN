@@ -2,9 +2,9 @@ import tensorflow as tf
 import tensorflow.contrib as tc
 import numpy as np
 from data_util import DataManager
-
-IS_TRAINING = True
-INIT_LEARNING_RATE = 0.00001
+import data_util
+IS_TRAINING = False
+INIT_LEARNING_RATE = 0.000001
 
 
 class Config(object):
@@ -41,8 +41,8 @@ class NERCNN(object):
         else:
             name_prefix = "test"
         with tf.variable_scope(name_prefix + "_inputs"):
-            self.input = tf.placeholder(tf.float32, [None, 70, 500], name="input_map")
-            self.output = tf.placeholder(tf.float32, [None, 12, 500], name="output_map")
+            self.input = tf.placeholder(tf.float32, [None, 70, 400], name="input_map")
+            self.output = tf.placeholder(tf.float32, [None, 12, 400], name="output_map")
 
         with tf.variable_scope("config"):
             self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
@@ -53,13 +53,13 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
-            self.net = tf.reshape(self.input, [-1, 70, 500, 1], "input_reshape")  # 70*500 = 35000
-            self.net = tc.layers.conv2d(self.net, 32, [5, 5], stride=1, padding="VALID")  # 66*496*32
-            self.net = tc.layers.max_pool2d(self.net, [2, 6], stride=2)  # 33*246*32
-            self.net = tc.layers.conv2d(self.net, 64, [33, 3], stride=1, padding="VALID")  # 1*244*32
-            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1*122*32
-            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*120*32
-            self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*62*32
+            self.net = tf.reshape(self.input, [-1, 70, 400, 1], "input_reshape")  # 70*500 = 35000
+            self.net = tc.layers.conv2d(self.net, 32, [70, 6], stride=1, padding="VALID")  # 66*496*32
+            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=1)  # 33*246*32V
+            # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1, padding="VALID")  # 1*244*32
+            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1*122*32
+            # self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*120*32
+            # self.net = tc.layers.max_pool2d(self.net, [1, 4], stride=2)  # 1*62*32
             # self.net = self.add_c_layer(self.net, 32, [70, 9], "c1")  # 35*250*32 = 280000
             # self.net = self.add_c_layer(self.net, 32, [1, 3], "c2")  # 18*125*64 = 144000
 
@@ -67,24 +67,24 @@ class NERCNN(object):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "fc1")
+            self.net = self.add_fc_layer(self.net, 1 * 12 * 400, "fc1")
             # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "fc2")
             # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
         with tf.name_scope("Expand"):
             # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "projection")
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 500, activation_fn=None),
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 400, activation_fn=None),
                                      keep_prob=self.fc_keep_prob)
 
         with tf.name_scope("Output"):
-            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 500])
+            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 400])
 
         if self.is_training is False:
             return
 
         with tf.name_scope("Loss"):
             with tf.name_scope("SubLoss"):
-                for i in range(500):
+                for i in range(400):
                     tf.add_to_collection("column loss",
                                          tf.nn.softmax_cross_entropy_with_logits(logits=self.net[:, :, i],
                                                                                  labels=self.output[:, :, i]))
@@ -99,7 +99,7 @@ class NERCNN(object):
                 tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
-            self.train_op = tf.train.GradientDescentOptimizer(self.learning_rate).minimize(self.loss)
+            self.train_op = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
             self.increase_step = self.global_step.assign_add(1)
 
     def add_c_layer(self, net, size, kernel_size, name):
@@ -140,22 +140,22 @@ def run_train(sess, model, data_instance):
         step += 1
         writer.add_summary(merged_summary, global_step=g_steps)
         if g_steps % 100 == 0:
-            saver.save(sess, "model/model.ckpt")
+            saver.save(sess, "model/v1/model.ckpt")
             print ("Save model")
         print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(0, source="test")
+    sample_input, sample_output = data_instance.get_one_sample(1, source="train")
     feed_dict = {
-        model.input: np.reshape(sample_input, [1, 70, 500]),
+        model.input: np.reshape(sample_input, [1, 70, 400]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
     output = sess.run([model.net_output], feed_dict=feed_dict)
     class_output = []
     class_correct_output = []
-    for i in range(500):
+    for i in range(400):
         class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
         class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
     print (class_output)
@@ -171,9 +171,13 @@ if __name__ == "__main__":
     saver = tf.train.Saver()
     init = tf.global_variables_initializer()
     merged = tf.summary.merge_all()
-    writer = tf.summary.FileWriter("log/", session.graph)
+    writer = tf.summary.FileWriter("log/v1", session.graph)
     session.run(init)
-    ckpt = tf.train.get_checkpoint_state('model')
+    ckpt = tf.train.get_checkpoint_state('model/v1')
+    if tf.gfile.Exists("../data/train_np.npy") is False:
+        print ("not find npy data file, parse data ..")
+        data_util.save_to_disk("../data/train", "../data/test")
+        print ("Done!")
     data_manager = DataManager("../data/train_np.npy", "../data/test_np.npy", ner_model.batch_size)
 
     if ckpt and ckpt.model_checkpoint_path:

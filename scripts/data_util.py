@@ -21,7 +21,7 @@ def parse_raw_data(path):
     data = []
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
-        sentence_data = np.zeros((70 + 12, 500), dtype=np.float32)
+        sentence_data = np.zeros((70 + 12, 400), dtype=np.float32)
         col_idx = 0
         for word_idx in range(len(sentence)):
             word = sentence[word_idx]
@@ -53,10 +53,10 @@ def parse_raw_data(path):
                     row_idx = char_dec - 33
                 elif 126 >= char_dec >= 123:
                     row_idx = char_dec - 33 - 26
-                sentence_data[row_idx, col_idx] = 1
+                sentence_data[0:row_idx, col_idx] = 1
                 sentence_data[target_symbol_index, col_idx] = 1
                 col_idx += 1
-            sentence_data[69, col_idx] = 1
+            sentence_data[0:69, col_idx] = 1
             sentence_data[81, col_idx] = 1
             col_idx += 1
         data.append(sentence_data)
@@ -64,8 +64,8 @@ def parse_raw_data(path):
 
 
 def save_to_disk(train_data, evl_data):
-    np.save(train_data+"_np", parse_raw_data(train_data))
-    np.save(evl_data+"_np", parse_raw_data(evl_data))
+    np.save(train_data + "_np", parse_raw_data(train_data))
+    np.save(evl_data + "_np", parse_raw_data(evl_data))
 
 
 class DataManager(object):

@@ -27,25 +27,25 @@ def parse_raw_data(path):
             word = sentence[word_idx]
             target_symbol = 0  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 1 / 10.0
+                target_symbol = 1
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 2 / 10.0
+                target_symbol = 2
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 3 / 10.0
+                target_symbol = 3
             elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 4 / 10.0
+                target_symbol = 4
             elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 5 / 10.0
+                target_symbol = 5
             elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 6 / 10.0
+                target_symbol = 6
             elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 7 / 10.0
+                target_symbol = 7
             elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 8 / 10.0
+                target_symbol = 8
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 9 / 10.0
+                target_symbol = 9
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol = 10 / 10.0
+                target_symbol = 10
             for char in word.upper():  # upper the
                 char_dec = ord(char)
                 row_idx = 68  # represent other unkonw symbols
