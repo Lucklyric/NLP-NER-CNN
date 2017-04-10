@@ -180,7 +180,7 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter("log/v4", session.graph)
     session.run(init)
     ckpt = tf.train.get_checkpoint_state('model/v4')
-    if tf.gfile.Exists("../data/train_np.npy") is False:
+    if tf.gfile.Exists("../data/train_in_np.npy") is False:
         print ("not find npy data file, parse data ..")
         data_util_v4.save_to_disk("../data/train", "../data/test")
         print ("Done!")
