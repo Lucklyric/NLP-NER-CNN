@@ -18,83 +18,100 @@ def parse_raw_data(path):
                 in_sentence = []
                 target_sentence = []
 
-    data = []
+    input_data = []
+    output_data = []
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
-        sentence_data = np.zeros((71 + 13, 400), dtype=np.float32)
-        col_idx = 0
-        for word_idx in range(len(sentence)):
-            word = sentence[word_idx]
-            target_symbol_index = 71  # 0 PASS
+        sentence_in_data = np.zeros([50, 70, 20], dtype=np.float32)
+        sentence_out_data = np.zeros([13, 50], dtype=np.float32)
+        word_idx = 0
+        for word in sentence:
+            if word_idx >= 50:
+                break
+            # handle target output
+            target_symbol_index = 0  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 81
+                target_symbol_index = 1
             elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 72
+                target_symbol_index = 2
             elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 73
+                target_symbol_index = 3
             elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 74
+                target_symbol_index = 4
             elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 75
+                target_symbol_index = 5
             elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 76
+                target_symbol_index = 6
             elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 77
+                target_symbol_index = 7
             elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 78
+                target_symbol_index = 8
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 79
+                target_symbol_index = 9
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 80
+                target_symbol_index = 0
+
+            sentence_out_data[target_symbol_index, word_idx] = 1
+
+            # handle input word
+            col_idx = 0
             for char in word.upper():  # upper the
+                if col_idx >= 20:
+                    break
                 char_dec = ord(char)
                 row_idx = 68  # represent other unkonw symbols
                 if 96 >= char_dec >= 33:
                     row_idx = char_dec - 33
                 elif 126 >= char_dec >= 123:
                     row_idx = char_dec - 33 - 26
-                sentence_data[0:row_idx, col_idx] = 1
-                sentence_data[target_symbol_index, col_idx] = 1
+                sentence_in_data[word_idx, 0:row_idx, col_idx] = 1
                 col_idx += 1
-            sentence_data[69, col_idx] = 1
-            sentence_data[82, col_idx] = 1
-            col_idx += 1
-        sentence_data[70, col_idx:] = 1  # PAD
-        sentence_data[83, col_idx:] = 1  # PAD
-        data.append(sentence_data)
-    return np.array(data)
+
+            word_idx += 1
+        sentence_in_data[word_idx:, 69, :] = 1  # PAD
+        sentence_out_data[12, word_idx:] = 1  # PAD
+        input_data.append(sentence_in_data)
+        output_data.append(sentence_out_data)
+    return np.array(input_data), np.array(output_data)
 
 
 def save_to_disk(train_data, evl_data):
-    np.save(train_data + "_np", parse_raw_data(train_data))
-    np.save(evl_data + "_np", parse_raw_data(evl_data))
+    train_in, train_out = parse_raw_data(train_data)
+    np.save(train_data + "_in_np", train_in)
+    np.save(train_data + "_out_np", train_out)
+
+    evl_in, evl_out = parse_raw_data(evl_data)
+    np.save(evl_data + "_in_np", evl_in)
+    np.save(evl_data + "_out_np", evl_out)
 
 
 class DataManager(object):
-    def __init__(self, train_data, evl_data, batch_size):
+    def __init__(self, train_data_in, train_data_out, evl_data_in, evl_data_out, batch_size):
         print ("Start loading data ...")
-        self._train_data = train_data
-        self._evl_data = evl_data
-        self._train_data = np.load(self._train_data)
-        self._evl_data = np.load(self._evl_data)
+        self._train_data_in = np.load(train_data_in)
+        self._train_data_out = np.load(train_data_out)
+        self._evl_data_in = np.load(evl_data_in)
+        self._evl_data_out = np.load(evl_data_out)
         self._batch_size = batch_size
         self._batch_index = 0
         print ("Data loaded !")
 
     def get_one_sample(self, index=0, source="test"):
         if source != "test":
-            return self._train_data[index, 0:71, :], self._train_data[index, 71:, :]
+            return self._train_data_in[index, :, :, :], self._train_data_out[index, :, :]
         else:
-            return self._evl_data[index, 0:71, :], self._evl_data[index, 71:, :]
+            return self._evl_data_in[index, :, :, :], self._evl_data_out[index, :, :]
 
     def get_batch(self):
         epoch_end = False
         self._batch_index += self._batch_size
-        if self._batch_index > np.shape(self._train_data)[0]:
+        if self._batch_index > len(self._train_data_in):
             epoch_end = True
-            np.random.shuffle(self._train_data)  # shuffle the data
+            randomize = np.arange(len(self._train_data_in))
+            np.random.shuffle(randomize)
+            self._train_data_in = self._train_data_in[randomize]
+            self._train_data_out = self._train_data_out[randomize]
             self._batch_index = self._batch_size
-        batch_data = self._train_data[self._batch_index - self._batch_size:self._batch_index]
-        batch_input = batch_data[:, 0:71, :]
-        batch_output = batch_data[:, 71:, :]
+        batch_input = self._train_data_in[self._batch_index - self._batch_size:self._batch_index]
+        batch_output= self._train_data_out[self._batch_index - self._batch_size:self._batch_index]
         return batch_input, batch_output, epoch_end
