@@ -4,7 +4,7 @@ import numpy as np
 from data_util_v4 import DataManager
 import data_util_v4
 
-IS_TRAINING = False
+IS_TRAINING = True
 INIT_LEARNING_RATE = 0.0001
 
 
