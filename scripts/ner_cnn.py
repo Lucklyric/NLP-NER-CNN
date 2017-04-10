@@ -4,13 +4,13 @@ import numpy as np
 from data_util import DataManager
 import data_util
 
-IS_TRAINING = True
+IS_TRAINING = False
 INIT_LEARNING_RATE = 0.0001
 
 
 class Config(object):
     batch_size = 64
-    fc_keep_prob_value = 0.5
+    fc_keep_prob_value =1
     cnn_keep_prob_value = 0.5
     is_training = True
 
@@ -55,10 +55,9 @@ class NERCNN(object):
 
         with tf.name_scope("CNN"):
             self.net = tf.reshape(self.input, [-1, 71, 400, 1], "input_reshape")  # 70*400 = 35000
-            self.net = tc.layers.conv2d(self.net, 128, [71, 5], stride=1, padding="VALID")  # 1 * 396 * 32
-            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 188 * 128
-            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1 * 186 * 128
-            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 92 * 128
+            self.net = tc.layers.conv2d(self.net, 32, [71, 9], stride=1, padding="VALID")  # 1 * 396 * 32
+            # self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1 * 186 * 128
+            # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 92 * 128
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
@@ -143,7 +142,7 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(2, source="train")
+    sample_input, sample_output = data_instance.get_one_sample(98, source="train")
     feed_dict = {
         model.input: np.reshape(sample_input, [1, 71, 400]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,

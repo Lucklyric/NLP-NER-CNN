@@ -4,7 +4,7 @@ import numpy as np
 from data_util_v2 import DataManager
 import data_util_v2
 
-IS_TRAINING = True
+IS_TRAINING = False
 INIT_LEARNING_RATE = 0.00001
 
 
@@ -42,7 +42,7 @@ class NERCNN(object):
         else:
             name_prefix = "test"
         with tf.variable_scope(name_prefix + "_inputs"):
-            self.input = tf.placeholder(tf.float32, [None, 70, 400], name="input_map")
+            self.input = tf.placeholder(tf.float32, [None, 71, 400], name="input_map")
             self.output = tf.placeholder(tf.float32, [None, 400], name="output_map")
 
         with tf.variable_scope("config"):
@@ -54,11 +54,12 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
 
         with tf.name_scope("CNN"):
-            self.net = tf.reshape(self.input, [-1, 70, 400, 1], "input_reshape")  # 70*500 = 35000
+            self.net = tf.reshape(self.input, [-1, 71, 400, 1], "input_reshape")  # 70*500 = 35000
             # self.net = tc.layers.conv2d(self.net, 32, [70, 5], stride=1, padding="VALID")  # 66*496*32
             # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 33*246*32
-            self.net = tc.layers.conv2d(self.net, 128, [70, 9], stride=1, padding="VALID")  # 66*496*32
-            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 33*246*32
+            self.net = tc.layers.conv2d(self.net, 64, [71, 1], stride=1, padding="VALID")  # 1*400*64
+            self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1*398*128
+            self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  #
 
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
@@ -74,7 +75,7 @@ class NERCNN(object):
             return
 
         with tf.name_scope("Loss"):
-            self.loss = tf.div(tf.nn.l2_loss(self.output - self.net_output), self.batch_size) * 100
+            self.loss = tf.div(tf.nn.l2_loss(self.output - self.net_output), self.batch_size)
             tf.summary.scalar('loss', self.loss)
 
         with tf.name_scope("train"):
@@ -125,20 +126,22 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(0, source="test")
+    sample_input, sample_output = data_instance.get_one_sample(4, source="test")
     feed_dict = {
-        model.input: np.reshape(sample_input, [1, 70, 400]),
+        model.input: np.reshape(sample_input, [1, 71, 400]),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
         model.fc_keep_prob: model.fc_keep_prob_value
     }
     output = sess.run([model.net_output], feed_dict=feed_dict)
-    # class_output = []
-    # class_correct_output = []
-    # for i in range(500):
-    #     class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
-    #     class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
-    print (output)
-    print (sample_output)
+    class_output = []
+    class_correct_output = []
+    dic_list = range(0, 13)
+    print (np.shape(output))
+    for i in range(400):
+        class_output.append(min(dic_list, key=lambda x: abs(x - np.asarray(output)[0, 0, i])))
+        class_correct_output.append(min(dic_list, key=lambda x: abs(x - np.asarray(sample_output)[i])))
+    print (class_output)
+    print (class_correct_output)
 
 
 if __name__ == "__main__":
