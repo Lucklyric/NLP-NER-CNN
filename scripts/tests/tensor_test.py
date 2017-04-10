@@ -7,8 +7,9 @@ a = np.asarray([[[1, 1, 1],
                  [4, 4, 4]],
                 [[5, 5, 5],
                  [6, 6, 6]]])
-
-print a[1,:,:]
+a_e = np.reshape(a, [-1, 3, 1])
+print (a_e)
+print np.shape(a_e)
 # t = np.reshape(a, [2, -1, 3])
 
 
