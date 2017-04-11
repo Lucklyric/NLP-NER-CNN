@@ -5,7 +5,7 @@ from data_util_v4 import DataManager
 import data_util_v4
 
 IS_TRAINING = True
-INIT_LEARNING_RATE = 0.00001
+INIT_LEARNING_RATE = 0.0075
 
 
 class Config(object):
