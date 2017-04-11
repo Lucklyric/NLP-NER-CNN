@@ -75,16 +75,20 @@ class NERCNN(object):
                     self.net = tf.transpose(self.net, [0, 2, 1, 3])  # ==> [batch,64,50,1]
 
         with tf.name_scope("CNN"):
-            self.net = tc.layers.conv2d(self.net, 50, [64, 5], stride=1,
-                                        padding="VALID")  # ==> [batch,1,46,50]
-            self.net = tf.transpose(self.net, [0, 3, 2, 1])
-            self.net = tc.layers.max_pool2d(self.net, [1, 46], stride=1)
+            self.net = tc.layers.conv2d(self.net, 32, [3, 3], stride=1,
+                                        padding="VALID")  # ==> [batch,62,48,32]
+            self.net = tc.layers.conv2d(self.net, 32, [4, 4], stride=2,
+                                        padding="VALID")  # ==> [batch,30,23,32]
+            self.net = tc.layers.conv2d(self.net, 64, [4, 5], stride=2,
+                                        padding="VALID")  # ==> [batch,14,15,64]
+            # self.net = tf.transpose(self.net, [0, 3, 2, 1])
+            # self.net = tc.layers.max_pool2d(self.net, [1, 46], stride=1)
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
-                                     keep_prob=self.fc_keep_prob)
+            # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
+            #                          keep_prob=self.fc_keep_prob)
 
             self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50, activation_fn=None),
                                      keep_prob=self.fc_keep_prob)
@@ -149,7 +153,7 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(1, source="test")
+    sample_input, sample_output = data_instance.get_one_sample(12, source="train")
     feed_dict = {
         model.input: np.expand_dims(sample_input, 0),
         model.cnn_keep_prob: model.cnn_keep_prob_value,
