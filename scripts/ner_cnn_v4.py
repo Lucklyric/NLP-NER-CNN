@@ -5,7 +5,7 @@ from data_util_v4 import DataManager
 import data_util_v4
 
 IS_TRAINING = True
-INIT_LEARNING_RATE = 0.0001
+INIT_LEARNING_RATE = 0.00001
 
 
 class Config(object):
@@ -51,35 +51,39 @@ class NERCNN(object):
             with tf.name_scope("Flat_words"):
                 self.net = tf.reshape(self.input, [-1, 70, 20, 1], "input_reshape")  # ==> [batch*50,71,20,1]
                 with tf.name_scope("CNN"):
-                    self.net = tc.layers.conv2d(self.net, 32, [70, 1], stride=1,
-                                                padding="VALID")  # ==> [batch*50,1,20,32]
-                    self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
-                                                padding="VALID")  # ==> [batch*50,1,18,64]
-                    self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
+                    self.net = tc.layers.conv2d(self.net, 64, [70, 5], stride=1,
                                                 padding="VALID")  # ==> [batch*50,1,16,64]
+                    self.net = tf.transpose(self.net, [0, 3, 2, 1])  # ==> [batch*50,64,16,1]
+                    self.net = tc.layers.max_pool2d(self.net, [1, 16], stride=1)  # ==> [batch*50,64,1]
+                    # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
+                    #                             padding="VALID")  # ==> [batch*50,1,18,64]
+                    # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
+                    #                             padding="VALID")  # ==> [batch*50,1,16,64]
                     # self.net = tc.layers.conv2d(self.net, 128, [1, 3], stride=1, padding="VALID")  # 1 * 186 * 128
                     # self.net = tc.layers.max_pool2d(self.net, [1, 2], stride=2)  # 1 * 92 * 128
 
                 with tf.name_scope("Flat"):
                     self.net = tc.layers.flatten(self.net)
 
-                with tf.name_scope("FC"):
-                    self.net = self.add_fc_layer(self.net, 128, "fc1")
-                    # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "fc2")
-                    # self.net = self.add_fc_layer(self.net, 512, "fc2")
+                # with tf.name_scope("FC"):
+                #     self.net = self.add_fc_layer(self.net, 64, "fc1")
+                #     # self.net = self.add_fc_layer(self.net, 1 * 12 * 500, "fc2")
+                #     # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
                 with tf.name_scope("WE-reshape"):
-                    self.net = tf.reshape(self.net, [-1, 50, 128, 1], name="WE-reshape")
-                    self.net = tf.transpose(self.net, [0, 2, 1, 3])
+                    self.net = tf.reshape(self.net, [-1, 50, 64, 1], name="WE-reshape")
+                    self.net = tf.transpose(self.net, [0, 2, 1, 3])  # ==> [batch,64,50,1]
 
         with tf.name_scope("CNN"):
-            self.net = tc.layers.conv2d(self.net, 32, [128, 1], stride=1,
-                                        padding="VALID")  # ==> [batch*50,1,20,32]
+            self.net = tc.layers.conv2d(self.net, 50, [64, 5], stride=1,
+                                        padding="VALID")  # ==> [batch,1,46,50]
+            self.net = tf.transpose(self.net, [0, 3, 2, 1])
+            self.net = tc.layers.max_pool2d(self.net, [1, 46], stride=1)
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
         with tf.name_scope("FC"):
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50),
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
                                      keep_prob=self.fc_keep_prob)
 
             self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50, activation_fn=None),
