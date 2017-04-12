@@ -4,7 +4,7 @@ import numpy as np
 from data_util_v4 import DataManager
 import data_util_v4
 
-IS_TRAINING = True
+IS_TRAINING = False
 INIT_LEARNING_RATE = 0.0075
 
 
@@ -38,7 +38,7 @@ class NERCNN(object):
 
         with tf.variable_scope("inputs"):
             self.input = tf.placeholder(tf.float32, [None, 50, 70, 20], name="input_map")
-            self.output = tf.placeholder(tf.float32, [None, 13, 50], name="output_map")
+            self.output = tf.placeholder(tf.float32, [None, 12, 50], name="output_map")
 
         with tf.variable_scope("config"):
             self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
@@ -75,12 +75,14 @@ class NERCNN(object):
                     self.net = tf.transpose(self.net, [0, 2, 1, 3])  # ==> [batch,64,50,1]
 
         with tf.name_scope("CNN"):
-            self.net = tc.layers.conv2d(self.net, 32, [3, 3], stride=1,
+            self.net = tc.layers.conv2d(self.net, 50, [64, 3], stride=1,
                                         padding="VALID")  # ==> [batch,62,48,32]
-            self.net = tc.layers.conv2d(self.net, 32, [4, 4], stride=2,
-                                        padding="VALID")  # ==> [batch,30,23,32]
-            self.net = tc.layers.conv2d(self.net, 64, [4, 5], stride=2,
-                                        padding="VALID")  # ==> [batch,14,15,64]
+            # self.net = tc.layers.conv2d(self.net, 32, [3, 3], stride=1,
+            #                             padding="VALID")  # ==> [batch,62,48,32]
+            # self.net = tc.layers.conv2d(self.net, 32, [4, 4], stride=2,
+            #                             padding="VALID")  # ==> [batch,30,23,32]
+            # self.net = tc.layers.conv2d(self.net, 64, [4, 5], stride=2,
+            #                             padding="VALID")  # ==> [batch,14,15,64]
             # self.net = tf.transpose(self.net, [0, 3, 2, 1])
             # self.net = tc.layers.max_pool2d(self.net, [1, 46], stride=1)
         with tf.name_scope("Flat"):
@@ -90,11 +92,13 @@ class NERCNN(object):
             # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
             #                          keep_prob=self.fc_keep_prob)
 
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50, activation_fn=None),
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50 * 2),
+                                     keep_prob=self.fc_keep_prob)
+            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50, activation_fn=None),
                                      keep_prob=self.fc_keep_prob)
 
         with tf.name_scope("Output"):
-            self.net_output = self.net = tf.reshape(self.net, [-1, 13, 50])
+            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 50])
 
         if self.is_training is False:
             return
@@ -153,20 +157,22 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    sample_input, sample_output = data_instance.get_one_sample(12, source="train")
-    feed_dict = {
-        model.input: np.expand_dims(sample_input, 0),
-        model.cnn_keep_prob: model.cnn_keep_prob_value,
-        model.fc_keep_prob: model.fc_keep_prob_value
-    }
-    output = sess.run([model.net_output], feed_dict=feed_dict)
-    class_output = []
-    class_correct_output = []
-    for i in range(50):
-        class_output.append(np.argmax(np.asarray(output)[0, 0, :, i]))
-        class_correct_output.append(np.argmax(np.asarray(sample_output)[:, i]))
-    print (class_output)
-    print (class_correct_output)
+    in_data, target_data = data_instance.get_eval_data()
+    test_output = []
+    for i in range(len(in_data)):
+        sample_input = in_data[i]
+        feed_dict = {
+            model.input: np.expand_dims(sample_input, 0),
+            model.cnn_keep_prob: model.cnn_keep_prob_value,
+            model.fc_keep_prob: model.fc_keep_prob_value
+        }
+        output = sess.run([model.net_output], feed_dict=feed_dict)
+        test_output.append(output[0][0])
+
+    print (np.shape(target_data))
+    print (np.shape(np.asarray(test_output)))
+
+    data_util_v4.final_evaluate(np.asarray(test_output), target_data)
 
 
 if __name__ == "__main__":
@@ -188,12 +194,12 @@ if __name__ == "__main__":
     writer = tf.summary.FileWriter("log/v4", session.graph)
     session.run(init)
     ckpt = tf.train.get_checkpoint_state('model/v4')
-    if tf.gfile.Exists("../data/train_in_np.npy") is False:
+    if tf.gfile.Exists("../data/train_in_np_v4.npy") is False:
         print ("not find npy data file, parse data ..")
         data_util_v4.save_to_disk("../data/train", "../data/test")
         print ("Done!")
-    data_manager = data_util_v4.DataManager("../data/train_in_np.npy", "../data/train_out_np.npy",
-                                            "../data/test_in_np.npy", "../data/test_out_np.npy", 64)
+    data_manager = data_util_v4.DataManager("../data/train_in_np_v4.npy", "../data/train_out_np_v4.npy",
+                                            "../data/test_in_np_v4.npy", "../data/test_out_np_v4.npy", 64)
     if ckpt and ckpt.model_checkpoint_path:
         saver.restore(session, ckpt.model_checkpoint_path)
         print('Checkpoint found')

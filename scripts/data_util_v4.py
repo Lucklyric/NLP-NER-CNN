@@ -23,7 +23,7 @@ def parse_raw_data(path):
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
         sentence_in_data = np.zeros([50, 70, 20], dtype=np.float32)
-        sentence_out_data = np.zeros([13, 50], dtype=np.float32)
+        sentence_out_data = np.zeros([12, 50], dtype=np.float32)
         word_idx = 0
         for word in sentence:
             if word_idx >= 50:
@@ -49,7 +49,7 @@ def parse_raw_data(path):
             elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 9
             elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 0
+                target_symbol_index = 10
 
             sentence_out_data[target_symbol_index, word_idx] = 1
 
@@ -69,7 +69,7 @@ def parse_raw_data(path):
 
             word_idx += 1
         sentence_in_data[word_idx:, 69, :] = 1  # PAD
-        sentence_out_data[12, word_idx:] = 1  # PAD
+        sentence_out_data[11, word_idx:] = 1  # PAD
         input_data.append(sentence_in_data)
         output_data.append(sentence_out_data)
     return np.array(input_data), np.array(output_data)
@@ -77,12 +77,49 @@ def parse_raw_data(path):
 
 def save_to_disk(train_data, evl_data):
     train_in, train_out = parse_raw_data(train_data)
-    np.save(train_data + "_in_np", train_in)
-    np.save(train_data + "_out_np", train_out)
+    np.save(train_data + "_in_np_v4", train_in)
+    np.save(train_data + "_out_np_v4", train_out)
 
     evl_in, evl_out = parse_raw_data(evl_data)
-    np.save(evl_data + "_in_np", evl_in)
-    np.save(evl_data + "_out_np", evl_out)
+    np.save(evl_data + "_in_np_v4", evl_in)
+    np.save(evl_data + "_out_np_v4", evl_out)
+
+
+def final_evaluate(test_output, target_output):
+    total_token = 0
+    class_tokens_total = np.zeros(11, dtype=np.int8)
+    class_tokens_TP = np.zeros(11, dtype=np.int8)
+    class_tokens_TN = np.zeros(11, dtype=np.int8)
+    class_tokens_FP = np.zeros(11, dtype=np.int8)
+    class_tokens_FN = np.zeros(11, dtype=np.int8)
+    for s_index in range(len(test_output)):
+        sentence = test_output[s_index]
+        sentence_target = target_output[s_index]
+        for w_index in range(len(sentence)):
+            output_label = np.argmax(sentence[:, w_index])
+            target_label = np.argmax(sentence_target[:, w_index])
+            if target_label == 11:
+                break  # skip left if reach PAD
+            total_token += 1  # add total token
+            class_tokens_total[target_label] += 1
+            if target_label == output_label:
+                class_tokens_TP[output_label] += 1
+                class_tokens_TN[:] += 1
+                class_tokens_TN[output_label] += 1
+            if target_label != output_label:
+                class_tokens_FN[target_label] += 1
+                if output_label != 12:
+                    class_tokens_FP[output_label] += 1
+
+    # Output Table
+    print ("--------------------------------------------------")
+    for i in range(11):
+        print ("%d  TP: %d, TN: %d, FP: %d, FN: %d, Total: %d" % (i,
+                                                                  class_tokens_TP[i],
+                                                                  class_tokens_TN[i],
+                                                                  class_tokens_FP[i],
+                                                                  class_tokens_FN[i],
+                                                                  class_tokens_total[i]))
 
 
 class DataManager(object):
@@ -102,6 +139,9 @@ class DataManager(object):
         else:
             return self._evl_data_in[index, :, :, :], self._evl_data_out[index, :, :]
 
+    def get_eval_data(self):
+        return self._evl_data_in, self._evl_data_out
+
     def get_batch(self):
         epoch_end = False
         self._batch_index += self._batch_size
@@ -113,5 +153,5 @@ class DataManager(object):
             self._train_data_out = self._train_data_out[randomize]
             self._batch_index = self._batch_size
         batch_input = self._train_data_in[self._batch_index - self._batch_size:self._batch_index]
-        batch_output= self._train_data_out[self._batch_index - self._batch_size:self._batch_index]
+        batch_output = self._train_data_out[self._batch_index - self._batch_size:self._batch_index]
         return batch_input, batch_output, epoch_end
