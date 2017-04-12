@@ -27,3 +27,11 @@ data/test_out_np\.npy
 data/train_in_np\.npy
 
 data/train_out_np\.npy
+
+data/test_in_np_v4\.npy
+
+data/test_out_np_v4\.npy
+
+data/train_in_np_v4\.npy
+
+data/train_out_np_v4\.npy
