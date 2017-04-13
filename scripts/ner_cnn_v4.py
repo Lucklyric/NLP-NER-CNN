@@ -10,7 +10,7 @@ INIT_LEARNING_RATE = 0.0075
 
 class Config(object):
     batch_size = 64
-    fc_keep_prob_value = 0.5
+    fc_keep_prob_value = 1
     cnn_keep_prob_value = 0.5
     is_training = True
 
@@ -54,6 +54,7 @@ class NERCNN(object):
                     self.net = tc.layers.conv2d(self.net, 64, [70, 5], stride=1,
                                                 padding="VALID")  # ==> [batch*50,1,16,64]
                     self.net = tf.transpose(self.net, [0, 3, 2, 1])  # ==> [batch*50,64,16,1]
+                    self.net = tf.nn.dropout(self.net, keep_prob=self.cnn_keep_prob)
                     self.net = tc.layers.max_pool2d(self.net, [1, 16], stride=1)  # ==> [batch*50,64,1]
                     # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
                     #                             padding="VALID")  # ==> [batch*50,1,18,64]
@@ -77,6 +78,7 @@ class NERCNN(object):
         with tf.name_scope("CNN"):
             self.net = tc.layers.conv2d(self.net, 50, [64, 3], stride=1,
                                         padding="VALID")  # ==> [batch,62,48,32]
+            self.net = tf.nn.dropout(self.net, keep_prob=self.cnn_keep_prob)
             # self.net = tc.layers.conv2d(self.net, 32, [3, 3], stride=1,
             #                             padding="VALID")  # ==> [batch,62,48,32]
             # self.net = tc.layers.conv2d(self.net, 32, [4, 4], stride=2,
@@ -88,17 +90,24 @@ class NERCNN(object):
         with tf.name_scope("Flat"):
             self.net = tc.layers.flatten(self.net)
 
-        with tf.name_scope("FC"):
+        stack_output = []
+        with tf.name_scope("Stack-Out"):
+            for i in range(50):
+                with tf.name_scope("FC"):
+                    fc1 = tf.nn.dropout(tc.layers.fully_connected(self.net, 512), keep_prob=self.fc_keep_prob_value)
+                    fc2 = tf.nn.dropout(tc.layers.fully_connected(fc1, 12, activation_fn=None),
+                                        keep_prob=self.fc_keep_prob_value)
+                    stack_output.append(fc2)
             # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
+            # #                          keep_prob=self.fc_keep_prob)
+            # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50 * 2),
             #                          keep_prob=self.fc_keep_prob)
-
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50 * 2),
-                                     keep_prob=self.fc_keep_prob)
-            self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50, activation_fn=None),
-                                     keep_prob=self.fc_keep_prob)
+            # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 12 * 50, activation_fn=None),
+            #                          keep_prob=self.fc_keep_prob)
+            self.net = tf.stack(stack_output)
 
         with tf.name_scope("Output"):
-            self.net_output = self.net = tf.reshape(self.net, [-1, 12, 50])
+            self.net_output = self.net = tf.reshape(tf.transpose(self.net, [1, 2, 0]), [-1, 12, 50])
 
         if self.is_training is False:
             return
@@ -157,7 +166,7 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    in_data, target_data = data_instance.get_eval_data()
+    in_data, target_data = data_instance.get_data(source="test")
     test_output = []
     for i in range(len(in_data)):
         sample_input = in_data[i]

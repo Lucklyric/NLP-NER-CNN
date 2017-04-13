@@ -87,11 +87,11 @@ def save_to_disk(train_data, evl_data):
 
 def final_evaluate(test_output, target_output):
     total_token = 0
-    class_tokens_total = np.zeros(11, dtype=np.int8)
-    class_tokens_TP = np.zeros(11, dtype=np.int8)
-    class_tokens_TN = np.zeros(11, dtype=np.int8)
-    class_tokens_FP = np.zeros(11, dtype=np.int8)
-    class_tokens_FN = np.zeros(11, dtype=np.int8)
+    class_tokens_total = np.zeros([11], dtype=np.int64)
+    class_tokens_TP = np.zeros([11], dtype=np.int64)
+    class_tokens_TN = np.zeros([11], dtype=np.int64)
+    class_tokens_FP = np.zeros([11], dtype=np.int64)
+    class_tokens_FN = np.zeros([11], dtype=np.int64)
     for s_index in range(len(test_output)):
         sentence = test_output[s_index]
         sentence_target = target_output[s_index]
@@ -105,10 +105,10 @@ def final_evaluate(test_output, target_output):
             if target_label == output_label:
                 class_tokens_TP[output_label] += 1
                 class_tokens_TN[:] += 1
-                class_tokens_TN[output_label] += 1
+                class_tokens_TN[output_label] -= 1
             if target_label != output_label:
                 class_tokens_FN[target_label] += 1
-                if output_label != 12:
+                if output_label != 11:
                     class_tokens_FP[output_label] += 1
 
     # Output Table
@@ -139,8 +139,11 @@ class DataManager(object):
         else:
             return self._evl_data_in[index, :, :, :], self._evl_data_out[index, :, :]
 
-    def get_eval_data(self):
-        return self._evl_data_in, self._evl_data_out
+    def get_data(self, source="test"):
+        if source == "test":
+            return self._evl_data_in, self._evl_data_out
+        else:
+            return self._train_data_in, self._train_data_out
 
     def get_batch(self):
         epoch_end = False
