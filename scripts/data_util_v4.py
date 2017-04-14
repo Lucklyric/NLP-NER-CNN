@@ -55,11 +55,11 @@ def parse_raw_data(path):
 
             # handle input word
             col_idx = 0
-            for char in word.upper():  # upper the
+            for char in word.upper():  # upper this
                 if col_idx >= 20:
                     break
                 char_dec = ord(char)
-                row_idx = 68  # represent other unkonw symbols
+                row_idx = 68  # represent other unknown symbols
                 if 96 >= char_dec >= 33:
                     row_idx = char_dec - 33
                 elif 126 >= char_dec >= 123:
@@ -68,7 +68,7 @@ def parse_raw_data(path):
                 col_idx += 1
 
             word_idx += 1
-        sentence_in_data[word_idx:, 69, :] = 1  # PAD
+        sentence_in_data[word_idx:, 69:, :] = 1  # PAD
         sentence_out_data[11, word_idx:] = 1  # PAD
         input_data.append(sentence_in_data)
         output_data.append(sentence_out_data)

@@ -4,20 +4,20 @@ import numpy as np
 from data_util_v4 import DataManager
 import data_util_v4
 
-IS_TRAINING = False
-INIT_LEARNING_RATE = 0.0075
+IS_TRAINING = True
+INIT_LEARNING_RATE = 0.00001
 
 
 class Config(object):
     batch_size = 64
-    fc_keep_prob_value = 1
+    fc_keep_prob_value = 0.5
     cnn_keep_prob_value = 0.5
     is_training = True
 
 
 class TrainConfig(Config):
     batch_size = 64
-    cnn_keep_prob_value = 1
+    cnn_keep_prob_value = 0.5
 
 
 class TestConfig(Config):
@@ -49,13 +49,15 @@ class NERCNN(object):
                 tf.summary.scalar('learning rate', self.learning_rate)
         with tf.name_scope("Word-Embedding"):
             with tf.name_scope("Flat_words"):
-                self.net = tf.reshape(self.input, [-1, 70, 20, 1], "input_reshape")  # ==> [batch*50,71,20,1]
+                self.net = tf.reshape(self.input, [-1, 70, 20, 1], "input_reshape")  # ==> [batch*50,70,20,1]
                 with tf.name_scope("CNN"):
-                    self.net = tc.layers.conv2d(self.net, 64, [70, 5], stride=1,
-                                                padding="VALID")  # ==> [batch*50,1,16,64]
-                    self.net = tf.transpose(self.net, [0, 3, 2, 1])  # ==> [batch*50,64,16,1]
+                    self.net = tc.layers.conv2d(self.net, 128, [70, 1], stride=1,
+                                                padding="VALID")  # ==> [batch*50,1,20,64]
+                    self.net = tc.layers.conv2d_in_plane(self.net, [1, 3], stride=1,
+                                                         padding="SAME")  # ==> [batch*50,1,20,64]
+                    self.net = tf.transpose(self.net, [0, 3, 2, 1])  # ==> [batch*50,64,20,1]
+                    self.net = tc.layers.max_pool2d(self.net, [1, 20], stride=1)  # ==> [batch*50,128,1]
                     self.net = tf.nn.dropout(self.net, keep_prob=self.cnn_keep_prob)
-                    self.net = tc.layers.max_pool2d(self.net, [1, 16], stride=1)  # ==> [batch*50,64,1]
                     # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
                     #                             padding="VALID")  # ==> [batch*50,1,18,64]
                     # self.net = tc.layers.conv2d(self.net, 64, [1, 3], stride=1,
@@ -72,13 +74,16 @@ class NERCNN(object):
                 #     # self.net = self.add_fc_layer(self.net, 512, "fc2")
 
                 with tf.name_scope("WE-reshape"):
-                    self.net = tf.reshape(self.net, [-1, 50, 64, 1], name="WE-reshape")
-                    self.net = tf.transpose(self.net, [0, 2, 1, 3])  # ==> [batch,64,50,1]
+                    self.net = tf.reshape(self.net, [-1, 50, 128, 1], name="WE-reshape")
+                    self.net = tf.transpose(self.net, [0, 2, 1, 3])  # ==> [batch,128,50,1]
 
         with tf.name_scope("CNN"):
-            self.net = tc.layers.conv2d(self.net, 50, [64, 3], stride=1,
-                                        padding="VALID")  # ==> [batch,62,48,32]
+            self.net = tc.layers.conv2d(self.net, 128, [128, 1], stride=1,
+                                        padding="VALID")  # ==> [batch,128,50,32]
+            self.net = tc.layers.conv2d_in_plane(self.net, [1, 5], stride=1,
+                                                 padding="SAME")  # ==> [batch,128,50,32]
             self.net = tf.nn.dropout(self.net, keep_prob=self.cnn_keep_prob)
+
             # self.net = tc.layers.conv2d(self.net, 32, [3, 3], stride=1,
             #                             padding="VALID")  # ==> [batch,62,48,32]
             # self.net = tc.layers.conv2d(self.net, 32, [4, 4], stride=2,
@@ -93,10 +98,13 @@ class NERCNN(object):
         stack_output = []
         with tf.name_scope("Stack-Out"):
             for i in range(50):
-                with tf.name_scope("FC"):
-                    fc1 = tf.nn.dropout(tc.layers.fully_connected(self.net, 512), keep_prob=self.fc_keep_prob_value)
-                    fc2 = tf.nn.dropout(tc.layers.fully_connected(fc1, 12, activation_fn=None),
+                with tf.name_scope("FC1") as scope:
+                    fc1 = tf.nn.dropout(tc.layers.fully_connected(self.net, 512, scope=scope),
                                         keep_prob=self.fc_keep_prob_value)
+                with tf.name_scope("FC2") as scope:
+                    fc2 = tf.nn.dropout(
+                        tc.layers.fully_connected(fc1, 12, scope=scope, activation_fn=None),
+                        keep_prob=self.fc_keep_prob_value)
                     stack_output.append(fc2)
             # self.net = tf.nn.dropout(tc.layers.fully_connected(self.net, 13 * 50 * 2),
             # #                          keep_prob=self.fc_keep_prob)
@@ -107,7 +115,8 @@ class NERCNN(object):
             self.net = tf.stack(stack_output)
 
         with tf.name_scope("Output"):
-            self.net_output = self.net = tf.reshape(tf.transpose(self.net, [1, 2, 0]), [-1, 12, 50])
+            self.net_output_logits = self.net = tf.reshape(tf.transpose(self.net, [1, 2, 0]), [-1, 12, 50])
+            self.net_output = tf.nn.softmax(self.net_output_logits, dim=1)
 
         if self.is_training is False:
             return
