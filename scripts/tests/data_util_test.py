@@ -23,13 +23,13 @@ sys.path.append("../")
 # print (np.shape(DataInstance._train_data))
 
 # V4 Test
-import data_util_v4
+import data_util_v5
 
 # Save to disk
-# data_util_v4.save_to_disk("../../data/train","../../data/test")
-DataInstance = data_util_v4.DataManager("../../data/train_in_np.npy", "../../data/train_out_np.npy",
-                                        "../../data/test_in_np.npy", "../../data/test_out_np.npy", 2)
+# data_util_v5.save_to_disk("../../data/train","../../data/test")
+DataInstance = data_util_v5.DataManager("../../data/train_in_np_v5.npy", "../../data/train_out_np_v5.npy",
+                                        "../../data/test_in_np_v5.npy", "../../data/test_out_np_v5.npy", 2)
 sample_input, sample_output = DataInstance.get_one_sample(0)
+print sample_output
 print np.shape(sample_input)
-print sample_input[2,:,0]
 print np.shape(sample_output)
