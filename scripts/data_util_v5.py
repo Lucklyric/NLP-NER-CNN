@@ -23,35 +23,36 @@ def parse_raw_data(path):
     for sentence_idx in range(len(input_sentences)):
         sentence = input_sentences[sentence_idx]
         sentence_in_data = np.zeros([50, 70, 20], dtype=np.float32)
-        sentence_out_data = np.zeros([12, 50], dtype=np.float32)
+        sentence_out_data = np.zeros([50 + 1], dtype=np.int32)
         word_idx = 0
+        sentence_out_data[word_idx] = 1  # EOS
         for word in sentence:
             if word_idx >= 50:
                 break
             # handle target output
-            target_symbol_index = 0  # 0 PASS
+            target_symbol_index = 12  # 0 PASS
             if ("company" in target_sentences[sentence_idx][word_idx]) is True:
-                target_symbol_index = 1
-            elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 2
-            elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("facility" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 3
-            elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("geo-loc" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 4
-            elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("movie" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 5
-            elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("musicartist" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 6
-            elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("other" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 7
-            elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("person" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 8
-            elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("product" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 9
-            elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
+            elif ("sportsteam" in target_sentences[sentence_idx][word_idx]) is True:
                 target_symbol_index = 10
+            elif ("tvshow" in target_sentences[sentence_idx][word_idx]) is True:
+                target_symbol_index = 11
 
-            sentence_out_data[target_symbol_index, word_idx] = 1
+            sentence_out_data[word_idx + 1] = target_symbol_index
 
             # handle input word
             col_idx = 0
@@ -69,7 +70,7 @@ def parse_raw_data(path):
 
             word_idx += 1
         sentence_in_data[word_idx:, 69:, :] = 1  # PAD
-        sentence_out_data[11, word_idx:] = 1  # PAD
+        sentence_out_data[word_idx + 1:] = 0  # PAD
         input_data.append(sentence_in_data)
         output_data.append(sentence_out_data)
     return np.array(input_data), np.array(output_data)
@@ -77,12 +78,12 @@ def parse_raw_data(path):
 
 def save_to_disk(train_data, evl_data):
     train_in, train_out = parse_raw_data(train_data)
-    np.save(train_data + "_in_np_v4", train_in)
-    np.save(train_data + "_out_np_v4", train_out)
+    np.save(train_data + "_in_np_v5", train_in)
+    np.save(train_data + "_out_np_v5", train_out)
 
     evl_in, evl_out = parse_raw_data(evl_data)
-    np.save(evl_data + "_in_np_v4", evl_in)
-    np.save(evl_data + "_out_np_v4", evl_out)
+    np.save(evl_data + "_in_np_v5", evl_in)
+    np.save(evl_data + "_out_np_v5", evl_out)
 
 
 def final_evaluate(test_output, target_output):
@@ -98,7 +99,7 @@ def final_evaluate(test_output, target_output):
         for w_index in range(len(sentence)):
             output_label = np.argmax(sentence[:, w_index])
             target_label = np.argmax(sentence_target[:, w_index])
-            if target_label == 11:
+            if target_label == 0:
                 break  # skip left if reach PAD
             total_token += 1  # add total token
             class_tokens_total[target_label] += 1
@@ -133,11 +134,11 @@ class DataManager(object):
         self._batch_index = 0
         print ("Data loaded !")
 
-    def get_one_sample(self, index=0, source="test"):
+    def get_one_sample(self, index=0, source="train"):
         if source != "test":
-            return self._train_data_in[index, :, :, :], self._train_data_out[index, :, :]
+            return self._train_data_in[index, :, :, :], self._train_data_out[index, :]
         else:
-            return self._evl_data_in[index, :, :, :], self._evl_data_out[index, :, :]
+            return self._evl_data_in[index, :, :, :], self._evl_data_out[index, :]
 
     def get_data(self, source="test"):
         if source == "test":

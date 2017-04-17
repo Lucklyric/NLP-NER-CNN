@@ -4,9 +4,10 @@ import numpy as np
 import data_util_v5
 from Seq2SeqModel import Seq2SeqModel
 from tensorflow.contrib.rnn import LSTMCell, LSTMStateTuple, GRUCell
+import math
 
 IS_TRAINING = False
-INIT_LEARNING_RATE = 0.0075
+INIT_LEARNING_RATE = 0.00001
 
 
 class Config(object):
@@ -39,7 +40,7 @@ class NERCNN(object):
 
         with tf.variable_scope("inputs"):
             self.input = tf.placeholder(tf.float32, [None, 50, 70, 20], name="input_map")
-            self.output = tf.placeholder(tf.float32, [None, 51], name="output_seq")
+            self.output = tf.placeholder(tf.int32, [None, 51], name="output_seq")
 
         with tf.variable_scope("config"):
             self.fc_keep_prob = tf.placeholder(tf.float32, name="fc_keep_prob")
@@ -62,24 +63,24 @@ class NERCNN(object):
                     self.net = tc.layers.flatten(self.net)
 
                 with tf.name_scope("WE-reshape"):
-                    self.net = tf.reshape(self.net, [-1, 51, 128], name="WE-reshape")
+                    self.net = tf.reshape(self.net, [-1, 50, 128], name="WE-reshape")
 
         with tf.name_scope("seq_2_seq"):
-            self.seq2seq_model = Seq2SeqModel(encoder_cell=LSTMCell(256),
+            self.seq2seq_model = Seq2SeqModel(encoder_cell=LSTMCell(128),
                                               decoder_cell=LSTMCell(256),
                                               encoder_inputs=self.net,
                                               decoder_train_inputs=self.output,
-                                              output_symbol_size=12,
+                                              output_symbol_size=13,
                                               embedding_size=128,
                                               bidirectional=True,
-                                              attention=True)
+                                              attention=True,
+                                              train=self.is_training)
 
             self.net_output = self.seq2seq_model.decoder_prediction_inference
-
-            self.loss = self.seq2seq_model.loss
-
-            self.train_op = self.seq2seq_model.train_op
-            self.increase_step = self.global_step.assign_add(1)
+            if self.is_training:
+                self.loss = self.seq2seq_model.loss
+                self.train_op = self.seq2seq_model.train_op
+                self.increase_step = self.global_step.assign_add(1)
 
 
 def run_train(sess, model, data_instance):
@@ -102,15 +103,18 @@ def run_train(sess, model, data_instance):
         step += 1
         writer.add_summary(merged_summary, global_step=g_steps)
         if g_steps % 100 == 0:
-            saver.save(sess, "model/v4/model.ckpt")
+            saver.save(sess, "model/v5/model.ckpt")
             print ("Save model")
-        print ("epoch %d, step %d, loss %f" % (epoch, step, loss))
+        eval_ppx = math.exp(float(loss)) if loss < 300 else float(
+            "inf")
+        print ("epoch %d, step %d, perplexity %f" % (epoch, step, eval_ppx))
 
 
 def run_evaluate(sess, model, data_instance):
-    in_data, target_data = data_instance.get_data(source="test")
+    in_data, target_data = data_instance.get_data(source="train")
     test_output = []
-    for i in range(len(in_data)):
+    # for i in range(len(in_data)):
+    for i in range(6):
         sample_input = in_data[i]
         feed_dict = {
             model.input: np.expand_dims(sample_input, 0),
@@ -118,12 +122,11 @@ def run_evaluate(sess, model, data_instance):
             model.fc_keep_prob: model.fc_keep_prob_value
         }
         output = sess.run([model.net_output], feed_dict=feed_dict)
-        test_output.append(output[0][0])
-
+        print output
     print (np.shape(target_data))
     print (np.shape(np.asarray(test_output)))
 
-    data_util_v5.final_evaluate(np.asarray(test_output), target_data)
+    # data_util_v5.final_evaluate(np.asarray(test_output), target_data)
 
 
 if __name__ == "__main__":
