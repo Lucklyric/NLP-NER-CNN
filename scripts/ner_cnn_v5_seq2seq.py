@@ -20,6 +20,7 @@ class Config(object):
 class TrainConfig(Config):
     batch_size = 64
     cnn_keep_prob_value = 1
+    fc_keep_prob_value = 1
 
 
 class TestConfig(Config):
@@ -79,6 +80,7 @@ class NERCNN(object):
             self.net_output = self.seq2seq_model.decoder_prediction_inference
             if self.is_training:
                 self.loss = self.seq2seq_model.loss
+                tf.summary.scalar('loss', self.loss)
                 self.train_op = self.seq2seq_model.train_op
                 self.increase_step = self.global_step.assign_add(1)
 
@@ -111,10 +113,9 @@ def run_train(sess, model, data_instance):
 
 
 def run_evaluate(sess, model, data_instance):
-    in_data, target_data = data_instance.get_data(source="train")
+    in_data, target_data = data_instance.get_data(source="test")
     test_output = []
-    # for i in range(len(in_data)):
-    for i in range(6):
+    for i in range(len(in_data)):
         sample_input = in_data[i]
         feed_dict = {
             model.input: np.expand_dims(sample_input, 0),
@@ -122,11 +123,11 @@ def run_evaluate(sess, model, data_instance):
             model.fc_keep_prob: model.fc_keep_prob_value
         }
         output = sess.run([model.net_output], feed_dict=feed_dict)
-        print output
+        test_output.append(output[0][0])
     print (np.shape(target_data))
     print (np.shape(np.asarray(test_output)))
 
-    # data_util_v5.final_evaluate(np.asarray(test_output), target_data)
+    data_util_v5.final_evaluate(np.asarray(test_output), target_data)
 
 
 if __name__ == "__main__":

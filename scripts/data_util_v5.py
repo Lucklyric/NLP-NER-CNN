@@ -65,7 +65,7 @@ def parse_raw_data(path):
                     row_idx = char_dec - 33
                 elif 126 >= char_dec >= 123:
                     row_idx = char_dec - 33 - 26
-                sentence_in_data[word_idx, 0:row_idx, col_idx] = 1
+                sentence_in_data[word_idx, row_idx, col_idx] = 1
                 col_idx += 1
 
             word_idx += 1
@@ -88,17 +88,19 @@ def save_to_disk(train_data, evl_data):
 
 def final_evaluate(test_output, target_output):
     total_token = 0
-    class_tokens_total = np.zeros([11], dtype=np.int64)
-    class_tokens_TP = np.zeros([11], dtype=np.int64)
-    class_tokens_TN = np.zeros([11], dtype=np.int64)
-    class_tokens_FP = np.zeros([11], dtype=np.int64)
-    class_tokens_FN = np.zeros([11], dtype=np.int64)
+    test_output = test_output[:, :-1]
+    target_output = target_output[:, 1:]
+    class_tokens_total = np.zeros([13], dtype=np.int64)
+    class_tokens_TP = np.zeros([13], dtype=np.int64)
+    class_tokens_TN = np.zeros([13], dtype=np.int64)
+    class_tokens_FP = np.zeros([13], dtype=np.int64)
+    class_tokens_FN = np.zeros([13], dtype=np.int64)
     for s_index in range(len(test_output)):
         sentence = test_output[s_index]
         sentence_target = target_output[s_index]
         for w_index in range(len(sentence)):
-            output_label = np.argmax(sentence[:, w_index])
-            target_label = np.argmax(sentence_target[:, w_index])
+            output_label = sentence[w_index]
+            target_label = sentence_target[w_index]
             if target_label == 0:
                 break  # skip left if reach PAD
             total_token += 1  # add total token
@@ -109,12 +111,12 @@ def final_evaluate(test_output, target_output):
                 class_tokens_TN[output_label] -= 1
             if target_label != output_label:
                 class_tokens_FN[target_label] += 1
-                if output_label != 11:
+                if output_label != 12:
                     class_tokens_FP[output_label] += 1
 
     # Output Table
     print ("--------------------------------------------------")
-    for i in range(11):
+    for i in range(13):
         print ("%d  TP: %d, TN: %d, FP: %d, FN: %d, Total: %d" % (i,
                                                                   class_tokens_TP[i],
                                                                   class_tokens_TN[i],
